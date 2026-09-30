@@ -142,6 +142,32 @@ class Player:
             pygame.draw.circle(screen, (255, 220, 60), (int(b[0]), int(b[1])), 5)
 
 
+class Barrel:
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 22, 22)
+        self.exploded = False
+
+    def explode(self, game):
+        if self.exploded:
+            return
+        self.exploded = True
+        cx, cy = self.rect.center
+        for zombie in list(game.zombies):
+            if math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) <= 120:
+                zombie.hp = 0
+                game.zombies.remove(zombie)
+                game.kills += 1
+                game.score += 25
+        if self in game.barrels:
+            game.barrels.remove(self)
+
+    def draw(self, screen):
+        if self.exploded:
+            return
+        pygame.draw.rect(screen, (130, 88, 56), self.rect, border_radius=4)
+        pygame.draw.circle(screen, (255, 185, 80), self.rect.center, 5)
+
+
 class GameEngine:
     def __init__(self):
         pygame.init()
@@ -155,6 +181,12 @@ class GameEngine:
     def reset(self):
         self.player = Player(WIDTH // 2, HEIGHT // 2)
         self.zombies = [spawn_zombie(WIDTH, HEIGHT, self.player.rect) for _ in range(4)]
+        self.barrels = [
+            Barrel(150, 120),
+            Barrel(650, 120),
+            Barrel(150, 420),
+            Barrel(650, 420),
+        ]
         self.score = 0
         self.wave = 1
         self.kills = 0
@@ -196,6 +228,15 @@ class GameEngine:
                 else:
                     z.rect.y += 12
 
+        for barrel in list(self.barrels):
+            for b in list(self.player.bullets):
+                bx, by = int(b[0]), int(b[1])
+                if barrel.rect.collidepoint(bx, by):
+                    barrel.explode(self)
+                    if b in self.player.bullets:
+                        self.player.bullets.remove(b)
+                    break
+
         dead = []
         for z in self.zombies:
             for b in self.player.bullets[:]:
@@ -228,6 +269,8 @@ class GameEngine:
             pygame.draw.line(self.screen, (40, 45, 35), (x, 0), (x, HEIGHT), 1)
         for y in range(0, HEIGHT, 60):
             pygame.draw.line(self.screen, (40, 45, 35), (0, y), (WIDTH, y), 1)
+        for barrel in self.barrels:
+            barrel.draw(self.screen)
         for z in self.zombies:
             z.draw(self.screen)
         self.player.draw(self.screen)
