@@ -62,6 +62,11 @@ class Player:
         self.max_hp = 3
         self.hp = self.max_hp
         self.invincibility = 0.0
+        self.max_ammo = 12
+        self.ammo = self.max_ammo
+        self.reload_duration = 2.0
+        self.is_reloading = False
+        self.reload_timer = 0.0
 
     def move(self, keys, width, height):
         dx = dy = 0
@@ -84,8 +89,28 @@ class Player:
         self.hp -= 1
         self.invincibility = 1.0
 
+    def start_reload(self):
+        if self.is_reloading or self.ammo == self.max_ammo:
+            return
+        self.is_reloading = True
+        self.reload_timer = self.reload_duration
+
+    def update_reload(self, dt):
+        if not self.is_reloading:
+            return
+        self.reload_timer -= dt
+        if self.reload_timer <= 0:
+            self.ammo = self.max_ammo
+            self.is_reloading = False
+            self.reload_timer = 0.0
+
     def shoot(self, target_pos):
         if self.shoot_cooldown > 0:
+            return
+        if self.is_reloading:
+            return
+        if self.ammo <= 0:
+            self.start_reload()
             return
         cx, cy = self.rect.center
         tx, ty = target_pos
@@ -95,7 +120,10 @@ class Player:
             return
         vx, vy = dx / dist * 10, dy / dist * 10
         self.bullets.append([cx - 4, cy - 4, vx, vy])
+        self.ammo -= 1
         self.shoot_cooldown = 15
+        if self.ammo <= 0:
+            self.start_reload()
 
     def update_bullets(self, width, height):
         live = []
@@ -152,6 +180,7 @@ class GameEngine:
         self.player.move(keys, WIDTH, HEIGHT)
         self.player.update_bullets(WIDTH, HEIGHT)
         self.player.invincibility = max(0.0, self.player.invincibility - dt)
+        self.player.update_reload(dt)
         self.score = int(time.time() - self.start_time)
 
         for z in self.zombies:
@@ -205,7 +234,7 @@ class GameEngine:
         hud_bg = pygame.Rect(0, 0, WIDTH, 40)
         pygame.draw.rect(self.screen, (15, 20, 15), hud_bg)
         hud = self.font.render(
-            f"HP: {self.player.hp}/3  |  Wave: {self.wave}  |  Score: {self.score}  |  WASD Move, Click Shoot, R Restart",
+            f"HP: {self.player.hp}/3  |  Ammo: {self.player.ammo}/{self.player.max_ammo}  |  Wave: {self.wave}  |  Score: {self.score}  |  WASD Move, Click Shoot, R Restart",
             True, (160, 220, 120),
         )
         self.screen.blit(hud, (8, 8))
