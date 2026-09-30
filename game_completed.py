@@ -10,14 +10,29 @@ BG = (30, 35, 25)
 
 
 class Zombie:
-    SPEED = 1.5
-
-    def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, 30, 30)
-        self.color = (60, 140, 60)
-        self.hp = 3
+    def __init__(self, x, y, zombie_type="walker"):
+        self.type = zombie_type
         self.wobble = random.uniform(0, 6.28)
         self.frame = 0
+
+        if zombie_type == "fast":
+            self.rect = pygame.Rect(x, y, 24, 24)
+            self.color = (110, 190, 110)
+            self.hp = 1
+            self.max_hp = 1
+            self.speed = 2.4
+        elif zombie_type == "tank":
+            self.rect = pygame.Rect(x, y, 46, 46)
+            self.color = (120, 90, 55)
+            self.hp = 6
+            self.max_hp = 6
+            self.speed = 1.1
+        else:
+            self.rect = pygame.Rect(x, y, 30, 30)
+            self.color = (60, 140, 60)
+            self.hp = 3
+            self.max_hp = 3
+            self.speed = 1.5
 
     def update(self, player_pos):
         px, py = player_pos
@@ -25,8 +40,8 @@ class Zombie:
         dx, dy = px - cx, py - cy
         dist = (dx ** 2 + dy ** 2) ** 0.5
         if dist:
-            self.rect.x += int(dx / dist * self.SPEED)
-            self.rect.y += int(dy / dist * self.SPEED)
+            self.rect.x += int(dx / dist * self.speed)
+            self.rect.y += int(dy / dist * self.speed)
         self.frame += 1
 
     def hit(self):
@@ -37,17 +52,30 @@ class Zombie:
         wobble_y = int(math.sin(self.frame * 0.2) * 3)
         draw_rect = self.rect.move(0, wobble_y)
         pygame.draw.rect(screen, self.color, draw_rect, border_radius=5)
-        for ex in [draw_rect.x + 6, draw_rect.x + 18]:
+        for ex in [draw_rect.x + 6, draw_rect.x + draw_rect.width - 10]:
             pygame.draw.circle(screen, (200, 40, 40), (ex, draw_rect.y + 10), 4)
 
 
-def spawn_zombie(width, height, player_rect, margin=120):
+def spawn_zombie(width, height, player_rect, wave=1):
     while True:
         x = random.randint(0, width - 30)
         y = random.randint(0, height - 30)
         rect = pygame.Rect(x, y, 30, 30)
-        if not rect.colliderect(player_rect.inflate(margin, margin)):
-            return Zombie(x, y)
+        if not rect.colliderect(player_rect.inflate(120, 120)):
+            roll = random.random()
+            if wave >= 2 and roll < 0.12 + min(0.18, wave * 0.02):
+                zombie_type = "fast"
+            elif wave >= 3 and roll < 0.18 + min(0.12, wave * 0.015):
+                zombie_type = "tank"
+            else:
+                zombie_type = "walker"
+
+            if zombie_type == "fast":
+                rect = pygame.Rect(x, y, 24, 24)
+            elif zombie_type == "tank":
+                rect = pygame.Rect(x, y, 46, 46)
+            if not rect.colliderect(player_rect.inflate(120, 120)):
+                return Zombie(x, y, zombie_type)
 
 
 SPEED = 4
@@ -261,7 +289,7 @@ class GameEngine:
             self.wave += 1
             self.kills_to_next = 8 + self.wave * 2
             for _ in range(self.wave + 3):
-                self.zombies.append(spawn_zombie(WIDTH, HEIGHT, self.player.rect))
+                self.zombies.append(spawn_zombie(WIDTH, HEIGHT, self.player.rect, self.wave))
 
     def draw(self):
         self.screen.fill(BG)
